@@ -247,14 +247,28 @@ function App() {
 
   const renderContent = () => {
     switch (activeSection) {
-      case SECTIONS.SEARCH:
-        return (
-          <SearchResults
-            searchResults={searchResults}
-            playVideo={playVideo}
-            favorites={favorites}
-          />
-        );
+case SECTIONS.SEARCH:
+  return (
+    <SearchResults
+      searchResults={searchResults}
+      playVideo={playVideo}
+      favorites={favorites}
+      handleToggleFavorite={async (video) => {
+        const isFav = favorites.some((fav) => fav.videoId === video.videoId);
+        if (isFav) {
+          await removeFavorite(video.videoId);
+        } else {
+          await addFavorite(video);
+        }
+        const updatedFavorites = await getFavorites();
+        setFavorites(updatedFavorites);
+      }}
+      openAddToPlaylistModal={(video) => {
+        console.log("TODO: Apri modal per aggiungere a playlist", video);
+      }}
+    />
+  );
+
       case SECTIONS.FAVORITES:
         return (
           <FavoritesList
