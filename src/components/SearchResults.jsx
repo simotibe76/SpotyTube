@@ -1,58 +1,134 @@
-import React from 'react';
-import { HeartIcon as HeartOutlineIcon } from '@heroicons/react/24/outline';
-import { HeartIcon, ListBulletIcon } from '@heroicons/react/24/solid';
+import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import GoogleAuth from "./components/GoogleAuth";
+import SyncButton from "./components/SyncButton";
 
-function SearchResults({ searchResults, playVideo, favorites, handleToggleFavorite, openAddToPlaylistModal }) {
-  if (searchResults.length === 0) {
-    return (
-      <p className="text-center text-gray-400 text-xl mt-10">Cerca musica o audiolibri per iniziare!</p>
-    );
-  }
+import {
+  HeartIcon,
+  PlusIcon,
+  TrashIcon,
+  ListBulletIcon,
+  XMarkIcon, 
+} from '@heroicons/react/24/solid';
+import { HeartIcon as HeartOutlineIcon } from '@heroicons/react/24/outline';
+
+import Header from './components/Header';
+import Navigation from './components/Navigation';
+import PlayerControls from './components/PlayerControls';
+import SearchResults from './components/SearchResults';
+import FavoritesList from './components/FavoritesList';
+import HistoryList from './components/HistoryList';
+import PlaylistsOverview from './components/PlaylistsOverview';
+import PlaylistDetail from './components/PlaylistDetail'; 
+
+import {
+  addFavorite,
+  removeFavorite,
+  getFavorites,
+  isFavorite,
+  addHistoryEntry,
+  getHistory,
+  createPlaylist,
+  getPlaylists,
+  addVideoToPlaylist,
+  removeVideoFromPlaylist,
+  deletePlaylist,
+  getPlaylist
+} from './db';
+
+const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+const BASE_URL = 'https://www.googleapis.com/youtube/v3';
+
+const SECTIONS = {
+  SEARCH: 'search',
+  FAVORITES: 'favorites',
+  HISTORY: 'history',
+  PLAYLISTS: 'playlists',
+  VIEW_PLAYLIST: 'viewPlaylist',
+};
+
+function App() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [playingVideoId, setPlayingVideoId] = useState(null);
+  const [currentPlayingTitle, setCurrentPlayingTitle] = useState('');
+  const [playerInstance, setPlayerInstance] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [activeSection, setActiveSection] = useState(SECTIONS.SEARCH);
+
+  const [favorites, setFavorites] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [playlists, setPlaylists] = useState([]);
+  const [currentPlaylist, setCurrentPlaylist] = useState(null);
+  const [currentViewedPlaylistId, setCurrentViewedPlaylistId] = useState(null);
+
+  const [user, setUser] = useState(null);
+
+  const intervalRef = useRef(null);
+
+  const loadData = async (section) => {
+    try {
+      if (section === SECTIONS.FAVORITES) {
+        const favs = await getFavorites();
+        setFavorites(favs);
+      } else if (section === SECTIONS.HISTORY) {
+        const hist = await getHistory();
+        setHistory(hist);
+      } else if (section === SECTIONS.PLAYLISTS) {
+        const pls = await getPlaylists();
+        setPlaylists(pls);
+      } else if (section === SECTIONS.VIEW_PLAYLIST && typeof currentViewedPlaylistId === 'number') { 
+        console.log(`loadData: Caricamento playlist ID: ${currentViewedPlaylistId}`);
+        const pl = await getPlaylist(currentViewedPlaylistId);
+        setCurrentPlaylist(pl);
+      } else if (section === SECTIONS.VIEW_PLAYLIST && currentViewedPlaylistId === null) {
+         console.warn("loadData: Tentativo di visualizzare playlist senza ID valido. Resetto la sezione.");
+         setActiveSection(SECTIONS.PLAYLISTS); 
+      }
+    } catch (err) {
+      console.error("Error loading data for section:", section, err);
+      setError(`Impossibile caricare i dati per ${section}.`);
+    }
+  };
+
+  useEffect(() => {
+    loadData(activeSection);
+  }, [activeSection, currentViewedPlaylistId]);
+
+  useEffect(() => {
+    const fetchFavoritesOnLoad = async () => {
+      const favs = await getFavorites();
+      setFavorites(favs);
+    };
+    fetchFavoritesOnLoad();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 shadow-lg">
-      <h2 className="text-2xl font-bold mb-4 text-purple-300">Risultati della Ricerca:</h2>
-      <ul className="space-y-4">
-        {searchResults.map((item) => (
-          <li
-            key={item.videoId}
-            className="flex items-center gap-4 bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-colors duration-150"
-          >
-            <img
-              src={item.thumbnail}
-              alt={item.title}
-              className="w-16 h-16 rounded-md object-cover cursor-pointer"
-              onClick={() => playVideo(item)}
-            />
-            <div className="flex-grow cursor-pointer" onClick={() => playVideo(item)}>
-              <p className="font-semibold text-lg">{item.title}</p>
-              <p className="text-gray-400 text-sm">{item.channelTitle}</p>
-            </div>
-            <div className="flex gap-2 items-center">
-              <button
-                onClick={() => handleToggleFavorite(item)}
-                className="p-2 rounded-full hover:bg-purple-500 transition-colors duration-200"
-                title={favorites.some(fav => fav.videoId === item.videoId) ? "Rimuovi dai preferiti" : "Aggiungi ai preferiti"}
-              >
-                {favorites.some(fav => fav.videoId === item.videoId) ? (
-                  <HeartIcon className="h-6 w-6 text-red-500" />
-                ) : (
-                  <HeartOutlineIcon className="h-6 w-6 text-gray-400" />
-                )}
-              </button>
-              <button
-                onClick={() => openAddToPlaylistModal(item)}
-                className="p-2 rounded-full hover:bg-purple-500 transition-colors duration-200"
-                title="Aggiungi a playlist"
-              >
-                <ListBulletIcon className="h-6 w-6 text-gray-400" />
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center">
+      <Header
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        handleSearch={() => {}}
+        loading={loading}
+        error={error}
+        user={user}
+        favorites={favorites}
+        playlists={playlists}
+        onLogin={(data) => setUser(data)}
+      />
+      {/* resto dell'app invariato */}
     </div>
   );
 }
 
-export default SearchResults;
+export default App;
