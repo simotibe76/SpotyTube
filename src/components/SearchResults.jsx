@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import GoogleAuth from "./components/GoogleAuth";
+
 import SyncButton from "./components/SyncButton";
 
 import {
