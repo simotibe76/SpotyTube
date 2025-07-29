@@ -12,14 +12,14 @@ import {
 } from '@heroicons/react/24/solid';
 import { HeartIcon as HeartOutlineIcon } from '@heroicons/react/24/outline';
 
-import Header from './components/Header';
-import Navigation from './components/Navigation';
-import PlayerControls from './components/PlayerControls';
-import SearchResults from './components/SearchResults';
-import FavoritesList from './components/FavoritesList';
-import HistoryList from './components/HistoryList';
-import PlaylistsOverview from './components/PlaylistsOverview';
-import PlaylistDetail from './components/PlaylistDetail'; 
+import Header from './Header';
+import Navigation from './Navigation';
+import PlayerControls from './PlayerControls';
+import SearchResults from './SearchResults';
+import FavoritesList from './FavoritesList';
+import HistoryList from './HistoryList';
+import PlaylistsOverview from './PlaylistsOverview';
+import PlaylistDetail from './PlaylistDetail'; 
 
 import {
   addFavorite,
