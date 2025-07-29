@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
-import SyncButton from "./components/SyncButton";
+import SyncButton from "./SyncButton";
 
 import {
   HeartIcon,
