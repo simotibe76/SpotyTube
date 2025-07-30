@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { uploadFavoritesToYouTube, uploadPlaylistsToYouTube } from '../youtubeSync';
+import { uploadFavoritesToYouTube, uploadPlaylistsToYouTube } from './youtubeSync';
 
 function SyncButton({ user, favorites, playlists }) {
   const [syncing, setSyncing] = useState(false);
