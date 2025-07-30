@@ -1,8 +1,11 @@
-// src/youtubeSync.js
-export async function syncFavoritesAndPlaylists({ user, favorites, playlists }) {
-  console.log("Sync simulata: Utente loggato:", user?.name);
-  console.log("Preferiti:", favorites);
-  console.log("Playlist:", playlists);
-  // Qui andrebbe la logica di creazione playlist YouTube via token
-  return { success: true };
+// src/components/youtubeSync.js
+export async function uploadFavoritesToYouTube(favorites, accessToken) {
+  console.log("Caricamento dei preferiti su YouTube non ancora implementato.");
+  // Qui andrà il codice per creare (o aggiornare) la playlist "Preferiti da SpotyTube"
+  // e aggiungere i brani
+}
+
+export async function uploadPlaylistsToYouTube(playlists, accessToken) {
+  console.log("Caricamento delle playlist su YouTube non ancora implementato.");
+  // Qui andrà il codice per sincronizzare le playlist utente
 }
