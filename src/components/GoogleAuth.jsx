@@ -1,87 +1,55 @@
-// src/components/GoogleAuth.jsx
-import React, { useEffect, useState, createContext, useContext } from 'react';
-import { gapi } from 'gapi-script';
+import { useEffect } from 'react';
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const SCOPES = 'https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/userinfo.profile';
-
-const AuthContext = createContext();
-
-export function useAuth() {
-  return useContext(AuthContext);
-}
 
 function GoogleAuth({ onLogin }) {
-  const [user, setUser] = useState(null);
-
   useEffect(() => {
-    function initClient() {
-      gapi.client.init({
-        clientId: CLIENT_ID,
-        scope: SCOPES,
-      }).then(() => {
-        const authInstance = gapi.auth2.getAuthInstance();
-        if (authInstance.isSignedIn.get()) {
-          const currentUser = authInstance.currentUser.get();
-          const profile = currentUser.getBasicProfile();
-          const token = currentUser.getAuthResponse().access_token;
-          const userData = {
-            name: profile.getName(),
-            email: profile.getEmail(),
-            token,
-          };
-          setUser(userData);
-          onLogin && onLogin(userData);
-        }
-      });
-    }
+    const initializeGapi = () => {
+      if (!window.google || !CLIENT_ID) {
+        console.error("Google API non disponibile o CLIENT_ID mancante");
+        return;
+      }
 
-    gapi.load('client:auth2', initClient);
+      window.google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: handleCredentialResponse,
+      });
+
+      window.google.accounts.id.prompt(); // mostra popup login se non loggato
+    };
+
+    const handleCredentialResponse = (response) => {
+      const token = response.credential;
+      const user = parseJwt(token);
+      if (user) {
+        onLogin({ ...user, token });
+      } else {
+        console.error("Token Google non valido");
+      }
+    };
+
+    const parseJwt = (token) => {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        return JSON.parse(jsonPayload);
+      } catch (err) {
+        console.error("Errore nel parsing del JWT:", err);
+        return null;
+      }
+    };
+
+    initializeGapi();
   }, []);
 
-  const signIn = () => {
-    const authInstance = gapi.auth2.getAuthInstance();
-    authInstance.signIn().then((googleUser) => {
-      const profile = googleUser.getBasicProfile();
-      const token = googleUser.getAuthResponse().access_token;
-      const userData = {
-        name: profile.getName(),
-        email: profile.getEmail(),
-        token,
-      };
-      setUser(userData);
-      onLogin && onLogin(userData);
-    });
-  };
-
-  const signOut = () => {
-    const authInstance = gapi.auth2.getAuthInstance();
-    authInstance.signOut().then(() => {
-      setUser(null);
-      onLogin && onLogin(null);
-    });
-  };
-
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut }}>
-      <div className="text-right p-2">
-        {user ? (
-          <button
-            onClick={signOut}
-            className="text-sm text-red-500 underline hover:text-red-700"
-          >
-            Logout
-          </button>
-        ) : (
-          <button
-            onClick={signIn}
-            className="text-sm text-green-500 underline hover:text-green-700"
-          >
-            Login con Google
-          </button>
-        )}
-      </div>
-    </AuthContext.Provider>
+    <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white">
+      <h1 className="text-3xl font-bold mb-4">Benvenuto su SpotyTube</h1>
+      <p className="text-lg text-gray-400">Per continuare, accedi con Google</p>
+    </div>
   );
 }
 
