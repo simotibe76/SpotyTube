@@ -1,127 +1,100 @@
-// 📁 src/components/SyncButton.jsx
-import React from "react";
-import { ArrowPathIcon } from "@heroicons/react/24/solid";
-import { getFavorites, getPlaylists } from "../db";
+import React, { useState } from 'react';
+import axios from 'axios';
 
-function SyncButton({ user, favorites, playlists }) {
-  const handleSync = async () => {
-    if (!user) return;
+function SyncButton({ favorites, playlists, user }) {
+  const [syncing, setSyncing] = useState(false);
+  const [message, setMessage] = useState('');
 
-    const accessToken = gapi.auth.getToken().access_token;
-    if (!accessToken) {
-      alert("Access token non trovato.");
+  const syncToYouTube = async () => {
+    if (!user || !user.token) {
+      setMessage('Devi essere loggato.');
       return;
     }
 
+    setSyncing(true);
+    setMessage('');
+
     try {
-      // 1. Sincronizza i preferiti in una playlist chiamata “Preferiti da SpotyTube”
-      const res = await fetch(
-        "https://www.googleapis.com/youtube/v3/playlists?part=snippet,status",
+      // 1. Trova (o crea) la playlist "Preferiti da SpotyTube"
+      const headers = {
+        Authorization: `Bearer ${user.token}`,
+        Accept: 'application/json',
+      };
+
+      const preferredTitle = 'Preferiti da SpotyTube';
+
+      const searchRes = await axios.get(
+        'https://www.googleapis.com/youtube/v3/playlists',
         {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
+          headers,
+          params: {
+            part: 'snippet',
+            mine: true,
+            maxResults: 50,
           },
-          body: JSON.stringify({
-            snippet: {
-              title: "Preferiti da SpotyTube",
-              description: "Brani preferiti sincronizzati dall'app SpotyTube",
-            },
-            status: {
-              privacyStatus: "private",
-            },
-          }),
         }
       );
-      const data = await res.json();
-      const playlistId = data.id;
 
-      // 2. Aggiungi i video dei preferiti a quella playlist
-      for (const item of favorites) {
-        await fetch(
-          "https://www.googleapis.com/youtube/v3/playlistItems?part=snippet",
+      let targetPlaylist = searchRes.data.items.find(
+        (pl) => pl.snippet.title === preferredTitle
+      );
+
+      if (!targetPlaylist) {
+        const createRes = await axios.post(
+          'https://www.googleapis.com/youtube/v3/playlists',
           {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
+            snippet: {
+              title: preferredTitle,
+              description: 'I miei preferiti sincronizzati da SpotyTube',
             },
-            body: JSON.stringify({
-              snippet: {
-                playlistId: playlistId,
-                resourceId: {
-                  kind: "youtube#video",
-                  videoId: item.videoId,
-                },
+            status: {
+              privacyStatus: 'private',
+            },
+          },
+          { headers }
+        );
+        targetPlaylist = createRes.data;
+      }
+
+      const playlistId = targetPlaylist.id;
+
+      // 2. Aggiungi i video preferiti alla playlist
+      for (const fav of favorites) {
+        await axios.post(
+          'https://www.googleapis.com/youtube/v3/playlistItems',
+          {
+            snippet: {
+              playlistId,
+              resourceId: {
+                kind: 'youtube#video',
+                videoId: fav.videoId,
               },
-            }),
-          }
+            },
+          },
+          { headers }
         );
       }
 
-      // 3. Sincronizza ogni playlist locale come playlist privata
-      for (const [playlistName, items] of Object.entries(playlists)) {
-        const resPlaylist = await fetch(
-          "https://www.googleapis.com/youtube/v3/playlists?part=snippet,status",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              snippet: {
-                title: playlistName,
-                description: "Playlist sincronizzata da SpotyTube",
-              },
-              status: {
-                privacyStatus: "private",
-              },
-            }),
-          }
-        );
-        const { id: newPlaylistId } = await resPlaylist.json();
-
-        for (const item of items) {
-          await fetch(
-            "https://www.googleapis.com/youtube/v3/playlistItems?part=snippet",
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                snippet: {
-                  playlistId: newPlaylistId,
-                  resourceId: {
-                    kind: "youtube#video",
-                    videoId: item.videoId,
-                  },
-                },
-              }),
-            }
-          );
-        }
-      }
-
-      alert("✅ Sincronizzazione completata!");
+      setMessage('Sincronizzazione completata!');
     } catch (err) {
-      console.error("Errore durante la sincronizzazione", err);
-      alert("❌ Errore durante la sincronizzazione.");
+      console.error('Errore durante la sincronizzazione:', err);
+      setMessage('Errore durante la sincronizzazione.');
+    } finally {
+      setSyncing(false);
     }
   };
 
   return (
-    <button
-      onClick={handleSync}
-      title="Sincronizza con YouTube"
-      className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center gap-2"
-    >
-      <ArrowPathIcon className="h-5 w-5" />
-      Sincronizza ora
-    </button>
+    <div className="flex flex-col items-center mt-2">
+      <button
+        onClick={syncToYouTube}
+        disabled={syncing}
+        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow"
+      >
+        {syncing ? 'Sincronizzo...' : 'Sincronizza ora'}
+      </button>
+      {message && <p className="text-sm mt-1 text-gray-300">{message}</p>}
+    </div>
   );
 }
 
