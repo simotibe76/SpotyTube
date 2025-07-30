@@ -1,62 +1,69 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
-function GoogleAuth({ onLogin }) {
+const GoogleAuth = ({ onLogin }) => {
+  const [user, setUser] = useState(null);
+
   useEffect(() => {
-    const initializeGapi = () => {
-      window.gapi.load('auth2', () => {
-        const auth2 = window.gapi.auth2.init({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-          scope: 'https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.force-ssl',
-        });
-
-        auth2.then(() => {
-          if (auth2.isSignedIn.get()) {
-            const user = auth2.currentUser.get();
-            const profile = user.getBasicProfile();
-            const token = user.getAuthResponse().access_token;
-            onLogin({
-              name: profile.getName(),
-              imageUrl: profile.getImageUrl(),
-              token,
-              userObj: user,
-            });
-          }
-        });
+    /* global google */
+    const initializeGSI = () => {
+      google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse,
       });
+      google.accounts.id.renderButton(
+        document.getElementById('gsi-button'),
+        { theme: 'outline', size: 'medium' }
+      );
     };
 
-    if (window.gapi) {
-      initializeGapi();
+    const handleCredentialResponse = async (response) => {
+      try {
+        const idToken = response.credential;
+        const res = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=' + idToken);
+        const userInfo = await res.json();
+
+        const tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          scope: 'https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/userinfo.profile',
+          callback: (tokenResponse) => {
+            const fullUser = {
+              name: userInfo.name,
+              picture: userInfo.picture,
+              token: tokenResponse.access_token,
+            };
+            setUser(fullUser);
+            onLogin(fullUser);
+          },
+        });
+
+        tokenClient.requestAccessToken();
+      } catch (err) {
+        console.error('Errore nel login Google:', err);
+      }
+    };
+
+    if (window.google) {
+      initializeGSI();
     } else {
       const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.onload = initializeGapi;
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.onload = initializeGSI;
       document.body.appendChild(script);
     }
   }, [onLogin]);
 
-  const handleLogin = () => {
-    const auth2 = window.gapi.auth2.getAuthInstance();
-    auth2.signIn().then(user => {
-      const profile = user.getBasicProfile();
-      const token = user.getAuthResponse().access_token;
-      onLogin({
-        name: profile.getName(),
-        imageUrl: profile.getImageUrl(),
-        token,
-        userObj: user,
-      });
-    });
-  };
-
   return (
-    <button
-      onClick={handleLogin}
-      className="bg-white text-gray-800 px-4 py-2 rounded-lg shadow-md hover:bg-gray-100 transition"
-    >
-      Login con Google
-    </button>
+    <div className="flex items-center gap-4">
+      {user ? (
+        <div className="flex items-center gap-2">
+          <img src={user.picture} alt="Avatar" className="w-8 h-8 rounded-full" />
+          <span className="text-sm text-gray-200">{user.name}</span>
+        </div>
+      ) : (
+        <div id="gsi-button"></div>
+      )}
+    </div>
   );
-}
+};
 
 export default GoogleAuth;
