@@ -1,0 +1,2 @@
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://accounts.google.com https://apis.google.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; img-src * data:; frame-src https://accounts.google.com https://www.youtube.com;
