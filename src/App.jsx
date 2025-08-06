@@ -25,7 +25,6 @@ import {
   getPlaylist
 } from './db';
 
-const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 const BASE_URL = 'https://www.googleapis.com/youtube/v3';
 
 const SECTIONS = {
@@ -42,7 +41,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const [user, setUser] = useState(null); // 👈 stato utente loggato
+  const [user, setUser] = useState(null);
   const [favorites, setFavorites] = useState([]);
   const [history, setHistory] = useState([]);
   const [playlists, setPlaylists] = useState([]);
@@ -70,7 +69,7 @@ function App() {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
+    if (!searchTerm.trim() || !user?.token) return;
 
     setLoading(true);
     setError(null);
@@ -80,10 +79,12 @@ function App() {
 
     try {
       const response = await axios.get(`${BASE_URL}/search`, {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
         params: {
           part: 'snippet',
           q: searchTerm,
-          key: YOUTUBE_API_KEY,
           type: 'video',
           maxResults: 10,
         },
@@ -247,28 +248,27 @@ function App() {
 
   const renderContent = () => {
     switch (activeSection) {
-case SECTIONS.SEARCH:
-  return (
-    <SearchResults
-      searchResults={searchResults}
-      playVideo={playVideo}
-      favorites={favorites}
-      handleToggleFavorite={async (video) => {
-        const isFav = favorites.some((fav) => fav.videoId === video.videoId);
-        if (isFav) {
-          await removeFavorite(video.videoId);
-        } else {
-          await addFavorite(video);
-        }
-        const updatedFavorites = await getFavorites();
-        setFavorites(updatedFavorites);
-      }}
-      openAddToPlaylistModal={(video) => {
-        console.log("TODO: Apri modal per aggiungere a playlist", video);
-      }}
-    />
-  );
-
+      case SECTIONS.SEARCH:
+        return (
+          <SearchResults
+            searchResults={searchResults}
+            playVideo={playVideo}
+            favorites={favorites}
+            handleToggleFavorite={async (video) => {
+              const isFav = favorites.some((fav) => fav.videoId === video.videoId);
+              if (isFav) {
+                await removeFavorite(video.videoId);
+              } else {
+                await addFavorite(video);
+              }
+              const updatedFavorites = await getFavorites();
+              setFavorites(updatedFavorites);
+            }}
+            openAddToPlaylistModal={(video) => {
+              console.log("TODO: Apri modal per aggiungere a playlist", video);
+            }}
+          />
+        );
       case SECTIONS.FAVORITES:
         return (
           <FavoritesList
